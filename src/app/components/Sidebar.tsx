@@ -35,7 +35,7 @@ export function Sidebar({ selectedDate, onDateSelect, onCreateEvent, calendars, 
   };
   
   return (
-    <div className="w-72 border-r border-[var(--calendar-border)] bg-[var(--calendar-header-bg)] p-6 flex flex-col gap-6">
+    <div className="w-56 border-r border-[var(--calendar-border)] bg-[var(--calendar-header-bg)] p-4 flex flex-col gap-5 overflow-y-auto overflow-x-hidden flex-shrink-0">
       {/* Create button */}
       <Button onClick={onCreateEvent} className="w-full justify-center shadow-sm">
         <Plus className="w-5 h-5" />

@@ -6,58 +6,83 @@ import { Select } from './Select';
 import { format } from 'date-fns';
 import type { Event } from './EventCard';
 
+// Maps eventType → calendar color (mirrors useSchedules.ts)
+const EVENT_TYPE_COLOR: Record<string, string> = {
+  work: 'purple',
+  personal: 'blue',
+  health: 'green',
+  social: 'orange',
+  learning: 'teal',
+  other: 'brown',
+};
+
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (event: Partial<Event>) => void;
+  onSave: (event: Partial<Event> & { eventType?: string }) => void;
   onDelete?: () => void;
   event?: Event;
   initialDate?: Date;
+  initialEndDate?: Date;
 }
 
-export function EventModal({ isOpen, onClose, onSave, onDelete, event, initialDate }: EventModalProps) {
-  const [title, setTitle] = React.useState(event?.title || '');
-  const [description, setDescription] = React.useState(event?.description || '');
-  const [color, setColor] = React.useState(event?.color || 'blue');
-  const [date, setDate] = React.useState(
-    event?.startTime ? format(event.startTime, 'yyyy-MM-dd') : 
-    initialDate ? format(initialDate, 'yyyy-MM-dd') : 
-    format(new Date(), 'yyyy-MM-dd')
-  );
-  const [startTime, setStartTime] = React.useState(
-    event?.startTime ? format(event.startTime, 'HH:mm') : '09:00'
-  );
-  const [endTime, setEndTime] = React.useState(
-    event?.endTime ? format(event.endTime, 'HH:mm') : '10:00'
-  );
+export function EventModal({ isOpen, onClose, onSave, onDelete, event, initialDate, initialEndDate }: EventModalProps) {
+  const [title, setTitle] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [eventType, setEventType] = React.useState('other');
+  const [date, setDate] = React.useState('');
+  const [startTime, setStartTime] = React.useState('09:00');
+  const [endTime, setEndTime] = React.useState('10:00');
 
-  const colorOptions = [
-    { value: 'brown', label: 'Brown' },
-    { value: 'blue', label: 'Blue' },
-    { value: 'purple', label: 'Purple' },
-    { value: 'pink', label: 'Pink' },
-    { value: 'red', label: 'Red' },
-    { value: 'orange', label: 'Orange' },
-    { value: 'yellow', label: 'Yellow' },
-    { value: 'green', label: 'Green' },
-    { value: 'teal', label: 'Teal' },
+  // Reset all fields whenever the modal opens with a new event/date
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setTitle(event?.title ?? '');
+    setDescription(event?.description ?? '');
+    // Reverse-lookup eventType from color, default 'other'
+    const detectedType = Object.entries(EVENT_TYPE_COLOR).find(
+      ([, c]) => c === event?.color
+    )?.[0] ?? 'other';
+    setEventType(detectedType);
+    const ref = event?.startTime ?? initialDate ?? new Date();
+    setDate(format(ref, 'yyyy-MM-dd'));
+
+    if (event?.startTime) {
+      // Editing existing event — use its times
+      setStartTime(format(event.startTime, 'HH:mm'));
+      setEndTime(format(event.endTime, 'HH:mm'));
+    } else if (initialDate) {
+      // Created from drag or slot click — use provided start/end
+      setStartTime(format(initialDate, 'HH:mm'));
+      setEndTime(initialEndDate ? format(initialEndDate, 'HH:mm') : format(new Date(initialDate.getTime() + 60 * 60 * 1000), 'HH:mm'));
+    } else {
+      setStartTime('09:00');
+      setEndTime('10:00');
+    }
+  }, [isOpen, event, initialDate, initialEndDate]);
+
+  const eventTypeOptions = [
+    { value: 'work', label: '💼 Work' },
+    { value: 'personal', label: '👤 Personal' },
+    { value: 'health', label: '💪 Health' },
+    { value: 'social', label: '🤝 Social' },
+    { value: 'learning', label: '📚 Learning' },
+    { value: 'other', label: '📌 Other' },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const startDateTime = new Date(`${date}T${startTime}`);
     const endDateTime = new Date(`${date}T${endTime}`);
-    
     onSave({
       id: event?.id || crypto.randomUUID(),
       title,
       description,
-      color,
+      color: EVENT_TYPE_COLOR[eventType] ?? 'brown',
       startTime: startDateTime,
       endTime: endDateTime,
+      eventType,
     });
-    
     onClose();
   };
 
@@ -137,12 +162,22 @@ export function EventModal({ isOpen, onClose, onSave, onDelete, event, initialDa
           </div>
 
           <div>
-            <label className="block text-sm mb-2">Color</label>
+            <label className="block text-sm mb-2">Event Type</label>
             <Select
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              options={colorOptions}
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value)}
+              options={eventTypeOptions}
             />
+            {/* Color preview */}
+            <div className="mt-2 flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: `var(--event-${EVENT_TYPE_COLOR[eventType] ?? 'brown'})` }}
+              />
+              <span className="text-xs text-gray-400 capitalize">
+                {EVENT_TYPE_COLOR[eventType] ?? 'brown'} on calendar
+              </span>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">

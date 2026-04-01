@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# AWS / Amplify — contains API keys and Cognito credentials
+src/amplifyconfiguration.json
+aws-exports.js
+
+# OS
+.DS_Store
+._*
+
+# Editor
+.vscode/
+.idea/

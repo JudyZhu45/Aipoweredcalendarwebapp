@@ -10,6 +10,7 @@ export interface Event {
   description?: string;
   isAISuggestion?: boolean;
   hasConflict?: boolean;
+  eventType?: string;
 }
 
 interface EventCardProps {

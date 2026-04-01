@@ -1,5 +1,13 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ── Lock the viewport — no page-level scroll ever ── */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 :root {
   --font-size: 16px;
   --background: #ffffff;

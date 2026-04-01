@@ -1,212 +1,151 @@
 import React from 'react';
+import { Routes, Route } from 'react-router';
+import { addWeeks, subWeeks } from 'date-fns';
+import { IterationsShowcase } from './landing/IterationsShowcase';
 import { TopNavigation } from './components/TopNavigation';
 import { Sidebar } from './components/Sidebar';
 import { WeekCalendar } from './components/WeekCalendar';
 import { AIPanel } from './components/AIPanel';
 import { EventModal } from './components/EventModal';
+import { TodoPanel } from './components/TodoPanel';
+import { AuthPage } from './components/AuthPage';
+import { useAuth } from './hooks/useAuth';
+import { useSchedules } from './hooks/useSchedules';
 import type { Event } from './components/EventCard';
 
-// Mock data
+// Maps eventType → calendar id
+const EVENT_TYPE_TO_CALENDAR: Record<string, string> = {
+  personal: '1',
+  work: '2',
+  family: '3',
+  fitness: '4',
+  health: '4',
+  social: '1',
+  learning: '2',
+  other: '1',
+};
+
 const mockCalendars = [
   { id: '1', name: 'Personal', color: 'blue', visible: true },
   { id: '2', name: 'Work', color: 'purple', visible: true },
   { id: '3', name: 'Family', color: 'green', visible: true },
-  { id: '4', name: 'Fitness', color: 'orange', visible: false },
+  { id: '4', name: 'Fitness', color: 'orange', visible: true },
 ];
 
-const generateMockEvents = (): Event[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  return [
-    {
-      id: '1',
-      title: 'Team Standup',
-      description: 'Daily sync with the team',
-      startTime: new Date(today.getTime() + (9 * 60 + 0) * 60000), // 9:00 AM today
-      endTime: new Date(today.getTime() + (9 * 60 + 30) * 60000), // 9:30 AM today
-      color: 'purple',
-    },
-    {
-      id: '2',
-      title: 'Design Review',
-      description: 'Review new dashboard designs',
-      startTime: new Date(today.getTime() + (11 * 60 + 0) * 60000), // 11:00 AM today
-      endTime: new Date(today.getTime() + (12 * 60 + 30) * 60000), // 12:30 PM today
-      color: 'blue',
-    },
-    {
-      id: '3',
-      title: 'Lunch with Client',
-      startTime: new Date(today.getTime() + (13 * 60 + 0) * 60000), // 1:00 PM today
-      endTime: new Date(today.getTime() + (14 * 60 + 0) * 60000), // 2:00 PM today
-      color: 'orange',
-    },
-    {
-      id: '4',
-      title: 'Product Planning',
-      description: 'Q2 roadmap discussion',
-      startTime: new Date(today.getTime() + (15 * 60 + 0) * 60000), // 3:00 PM today
-      endTime: new Date(today.getTime() + (16 * 60 + 30) * 60000), // 4:30 PM today
-      color: 'purple',
-    },
-    {
-      id: '5',
-      title: 'Gym Session',
-      startTime: new Date(today.getTime() + (18 * 60 + 0) * 60000), // 6:00 PM today
-      endTime: new Date(today.getTime() + (19 * 60 + 0) * 60000), // 7:00 PM today
-      color: 'green',
-    },
-    // Tomorrow's events
-    {
-      id: '6',
-      title: 'Morning Focus Time',
-      description: 'Deep work on project',
-      startTime: new Date(today.getTime() + 24 * 60 * 60000 + (8 * 60 + 0) * 60000),
-      endTime: new Date(today.getTime() + 24 * 60 * 60000 + (10 * 60 + 0) * 60000),
-      color: 'blue',
-    },
-    {
-      id: '7',
-      title: 'Client Call',
-      startTime: new Date(today.getTime() + 24 * 60 * 60000 + (14 * 60 + 0) * 60000),
-      endTime: new Date(today.getTime() + 24 * 60 * 60000 + (15 * 60 + 0) * 60000),
-      color: 'purple',
-    },
-  ];
-};
+interface MainAppProps {
+  userId: string;
+  userEmail: string;
+  onLogout: () => void;
+}
 
-const generateMockSuggestions = (): Event[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  return [
-    {
-      id: 'ai-1',
-      title: 'Focus Block',
-      description: 'Suggested focus time',
-      startTime: new Date(today.getTime() + (10 * 60 + 0) * 60000),
-      endTime: new Date(today.getTime() + (11 * 60 + 0) * 60000),
-      color: 'teal',
-      isAISuggestion: true,
-      hasConflict: true,
-    },
-    {
-      id: 'ai-2',
-      title: 'Coffee Break',
-      description: 'Suggested break',
-      startTime: new Date(today.getTime() + (14 * 60 + 30) * 60000),
-      endTime: new Date(today.getTime() + (15 * 60 + 0) * 60000),
-      color: 'yellow',
-      isAISuggestion: true,
-    },
-  ];
-};
+function MainApp({ userId, userEmail, onLogout }: MainAppProps) {
+  const schedule = useSchedules(userId);
 
-export default function App() {
   const [currentDate, setCurrentDate] = React.useState(new Date());
-  const [currentView, setCurrentView] = React.useState<'day' | 'week' | 'month'>('week');
-  const [events, setEvents] = React.useState<Event[]>(generateMockEvents());
   const [calendars, setCalendars] = React.useState(mockCalendars);
   const [selectedEvent, setSelectedEvent] = React.useState<Event | undefined>();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [modalInitialDate, setModalInitialDate] = React.useState<Date | undefined>();
-  const [isAIPanelExpanded, setIsAIPanelExpanded] = React.useState(true);
-  const [aiSuggestions, setAiSuggestions] = React.useState<Event[]>(generateMockSuggestions());
+  const [modalInitialEndDate, setModalInitialEndDate] = React.useState<Date | undefined>();
+  const [isAIPanelExpanded, setIsAIPanelExpanded] = React.useState(false);
+  const [todoRefreshKey, setTodoRefreshKey] = React.useState(0);
+
+  const handleAgentRefresh = React.useCallback(() => {
+    schedule.refresh();
+    setTodoRefreshKey(k => k + 1);
+  }, [schedule.refresh]);
 
   const handleCreateEvent = () => {
     setSelectedEvent(undefined);
     setModalInitialDate(currentDate);
+    setModalInitialEndDate(undefined);
     setIsModalOpen(true);
   };
 
   const handleEventClick = (event: Event) => {
     if (event.isAISuggestion) return;
     setSelectedEvent(event);
+    setModalInitialEndDate(undefined);
     setIsModalOpen(true);
   };
 
   const handleTimeSlotClick = (date: Date, hour: number) => {
     const slotDate = new Date(date);
     slotDate.setHours(hour, 0, 0, 0);
+    const slotEnd = new Date(slotDate);
+    slotEnd.setHours(hour + 1, 0, 0, 0);
     setModalInitialDate(slotDate);
+    setModalInitialEndDate(slotEnd);
     setSelectedEvent(undefined);
     setIsModalOpen(true);
   };
 
   const handleDragCreate = (date: Date, startHour: number, endHour: number) => {
     const startDate = new Date(date);
-    startDate.setHours(Math.floor(startHour), (startHour % 1) * 60, 0, 0);
-    
+    startDate.setHours(Math.floor(startHour), Math.round((startHour % 1) * 60), 0, 0);
     const endDate = new Date(date);
-    endDate.setHours(Math.floor(endHour), (endHour % 1) * 60, 0, 0);
-    
-    // Create a new event directly
-    const newEvent: Event = {
-      id: crypto.randomUUID(),
-      title: 'New Event',
-      startTime: startDate,
-      endTime: endDate,
-      color: 'brown',
-    };
-    
-    setEvents([...events, newEvent]);
-    setSelectedEvent(newEvent);
+    endDate.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+    setModalInitialDate(startDate);
+    setModalInitialEndDate(endDate);
+    setSelectedEvent(undefined);
     setIsModalOpen(true);
   };
 
-  const handleSaveEvent = (eventData: Partial<Event>) => {
-    if (selectedEvent) {
-      // Update existing event
-      setEvents(events.map(e => 
-        e.id === selectedEvent.id ? { ...e, ...eventData } as Event : e
-      ));
+  const handleSaveEvent = async (eventData: Partial<Event> & { eventType?: string }) => {
+    if (selectedEvent && schedule.events.some((e: Event) => e.id === selectedEvent.id)) {
+      await schedule.updateSchedule(selectedEvent.id, {
+        title: eventData.title,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
+        description: eventData.description,
+        eventType: eventData.eventType,
+      });
     } else {
-      // Create new event
-      setEvents([...events, eventData as Event]);
+      await schedule.addSchedule(
+        eventData.title ?? 'New Event',
+        eventData.startTime ?? new Date(),
+        eventData.endTime ?? new Date(),
+        eventData.eventType ?? 'other',
+        eventData.description ?? '',
+      );
     }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (selectedEvent) {
-      setEvents(events.filter(e => e.id !== selectedEvent.id));
+      await schedule.removeSchedule(selectedEvent.id);
       setIsModalOpen(false);
       setSelectedEvent(undefined);
     }
   };
 
+  const handlePrevWeek = () => setCurrentDate(d => subWeeks(d, 1));
+  const handleNextWeek = () => setCurrentDate(d => addWeeks(d, 1));
+  const handleToday = () => setCurrentDate(new Date());
+
   const handleToggleCalendar = (id: string) => {
-    setCalendars(calendars.map(cal => 
+    setCalendars(calendars.map(cal =>
       cal.id === id ? { ...cal, visible: !cal.visible } : cal
     ));
   };
 
-  const handleApplySuggestions = () => {
-    const newEvents = aiSuggestions.map(s => ({
-      ...s,
-      isAISuggestion: false,
-      hasConflict: false,
-    }));
-    setEvents([...events, ...newEvents]);
-    setAiSuggestions([]);
-  };
-
-  const handleDismissSuggestion = (id: string) => {
-    setAiSuggestions(aiSuggestions.filter(s => s.id !== id));
-  };
-
-  // Filter events based on visible calendars (simplified - in real app would match by calendar)
-  const visibleEvents = events;
+  const visibleCalendarIds = new Set(calendars.filter(c => c.visible).map(c => c.id));
+  const visibleEvents: Event[] = [...schedule.events].filter(event => {
+    const calId = EVENT_TYPE_TO_CALENDAR[event.eventType ?? 'other'] ?? '1';
+    return visibleCalendarIds.has(calId);
+  });
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <TopNavigation
         currentDate={currentDate}
-        currentView={currentView}
-        onViewChange={setCurrentView}
+        onPrevWeek={handlePrevWeek}
+        onNextWeek={handleNextWeek}
+        onToday={handleToday}
+        userEmail={userEmail}
+        onLogout={onLogout}
       />
-
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <Sidebar
           selectedDate={currentDate}
           onDateSelect={setCurrentDate}
@@ -214,36 +153,84 @@ export default function App() {
           calendars={calendars}
           onToggleCalendar={handleToggleCalendar}
         />
-
-        <WeekCalendar
-          currentDate={currentDate}
-          events={visibleEvents}
-          onEventClick={handleEventClick}
-          onTimeSlotClick={handleTimeSlotClick}
-          onDragCreate={handleDragCreate}
-          selectedEvent={selectedEvent}
-        />
-
+        <div className="flex-1 flex overflow-hidden min-h-0 relative">
+          {schedule.loading && (
+            <div className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow text-xs text-gray-400 pointer-events-none">
+              Syncing…
+            </div>
+          )}
+          <WeekCalendar
+            currentDate={currentDate}
+            events={visibleEvents}
+            onEventClick={handleEventClick}
+            onTimeSlotClick={handleTimeSlotClick}
+            onDragCreate={handleDragCreate}
+            selectedEvent={selectedEvent}
+          />
+        </div>
         <AIPanel
           isExpanded={isAIPanelExpanded}
           onToggle={() => setIsAIPanelExpanded(!isAIPanelExpanded)}
-          suggestions={aiSuggestions}
-          onApplySuggestions={handleApplySuggestions}
-          onDismissSuggestion={handleDismissSuggestion}
+          userId={userId}
+          onRefresh={handleAgentRefresh}
         />
+        <TodoPanel userId={userId} refreshKey={todoRefreshKey} />
       </div>
-
       <EventModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedEvent(undefined);
-        }}
+        onClose={() => { setIsModalOpen(false); setSelectedEvent(undefined); }}
         onSave={handleSaveEvent}
         onDelete={selectedEvent ? handleDeleteEvent : undefined}
         event={selectedEvent}
         initialDate={modalInitialDate}
+        initialEndDate={modalInitialEndDate}
       />
     </div>
+  );
+}
+
+function CalendarApp() {
+  const auth = useAuth();
+
+  if (auth.isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-3">🦫</div>
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auth.isSignedIn) {
+    return (
+      <AuthPage
+        onLogin={auth.login}
+        onRegister={auth.register}
+        onConfirm={auth.confirmCode}
+        onResendCode={auth.resendCode}
+        isLoading={auth.step === 'loading'}
+        error={auth.error}
+        pendingEmail={auth.pendingEmail}
+      />
+    );
+  }
+
+  return (
+    <MainApp
+      userId={auth.user!.userId}
+      userEmail={auth.user!.email}
+      onLogout={auth.logout}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/app/*" element={<CalendarApp />} />
+      <Route path="*" element={<IterationsShowcase />} />
+    </Routes>
   );
 }
