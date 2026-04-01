@@ -5,6 +5,16 @@ import { SectionDivider } from './shared/SectionDivider';
 export function IterationsShowcase() {
   const [activeNum, setActiveNum] = useState('01');
 
+  // The calendar app locks overflow:hidden on html/body/root globally.
+  // Override it for the landing page so normal scrolling works.
+  useEffect(() => {
+    const els = [document.documentElement, document.body, document.getElementById('root')];
+    els.forEach(el => { if (el) el.style.overflow = 'auto'; });
+    return () => {
+      els.forEach(el => { if (el) el.style.overflow = ''; });
+    };
+  }, []);
+
   // Update active item as user scrolls
   useEffect(() => {
     const observer = new IntersectionObserver(

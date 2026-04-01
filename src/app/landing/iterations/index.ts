@@ -24,6 +24,8 @@ import { Iteration23 } from './Iteration23';
 import { Iteration24 } from './Iteration24';
 import { Iteration25 } from './Iteration25';
 import { Iteration26 } from './Iteration26';
+import { Iteration27 } from './Iteration27';
+import { Iteration28 } from './Iteration28';
 import type { ComponentType } from 'react';
 
 export interface IterationMeta {
@@ -60,4 +62,6 @@ export const ITERATIONS: IterationMeta[] = [
   { number: '24', name: 'Timeline',           category: 'Section Experiments',  component: Iteration24 },
   { number: '25', name: 'App Store CTA',      category: 'Section Experiments',  component: Iteration25 },
   { number: '26', name: 'Golden Combo',        category: 'Combos',               component: Iteration26 },
+  { number: '27', name: 'Hover Expand Cards',  category: 'Combos',               component: Iteration27 },
+  { number: '28', name: 'Aligned Hover Cards', category: 'Combos',               component: Iteration28 },
 ];

@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router';
 import { addWeeks, subWeeks } from 'date-fns';
 import { IterationsShowcase } from './landing/IterationsShowcase';
+import { Iteration28 } from './landing/iterations/Iteration28';
 import { TopNavigation } from './components/TopNavigation';
 import { Sidebar } from './components/Sidebar';
 import { WeekCalendar } from './components/WeekCalendar';
@@ -230,7 +231,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/app/*" element={<CalendarApp />} />
-      <Route path="*" element={<IterationsShowcase />} />
+      <Route path="/iterations" element={<IterationsShowcase />} />
+      <Route path="*" element={<Iteration28 />} />
     </Routes>
   );
 }
