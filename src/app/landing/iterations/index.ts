@@ -23,6 +23,7 @@ import { Iteration22 } from './Iteration22';
 import { Iteration23 } from './Iteration23';
 import { Iteration24 } from './Iteration24';
 import { Iteration25 } from './Iteration25';
+import { Iteration26 } from './Iteration26';
 import type { ComponentType } from 'react';
 
 export interface IterationMeta {
@@ -58,4 +59,5 @@ export const ITERATIONS: IterationMeta[] = [
   { number: '23', name: 'Comparison Table',   category: 'Section Experiments',  component: Iteration23 },
   { number: '24', name: 'Timeline',           category: 'Section Experiments',  component: Iteration24 },
   { number: '25', name: 'App Store CTA',      category: 'Section Experiments',  component: Iteration25 },
+  { number: '26', name: 'Golden Combo',        category: 'Combos',               component: Iteration26 },
 ];
