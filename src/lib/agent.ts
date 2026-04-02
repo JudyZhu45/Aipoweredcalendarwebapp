@@ -62,6 +62,7 @@ export interface StreamAgentRequest {
 // ─── streamAgent — async generator consuming NDJSON from Lambda Function URL ─
 
 const STREAM_URL = import.meta.env.VITE_AGENT_STREAM_URL as string | undefined;
+const STREAM_TOKEN = import.meta.env.VITE_STREAM_TOKEN as string | undefined;
 
 export async function* streamAgent(
   req: StreamAgentRequest,
@@ -70,9 +71,14 @@ export async function* streamAgent(
     throw new Error('VITE_AGENT_STREAM_URL is not set in .env.local');
   }
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (STREAM_TOKEN) {
+    headers['Authorization'] = `Bearer ${STREAM_TOKEN}`;
+  }
+
   const response = await fetch(STREAM_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(req),
   });
 
