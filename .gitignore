@@ -21,3 +21,4 @@ aws-exports.js
 # Editor
 .vscode/
 .idea/
+.vercel

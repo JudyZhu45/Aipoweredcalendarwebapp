@@ -55,6 +55,8 @@ export interface StreamAgentRequest {
   request_id: string;
   /** Resume from this seq offset after a reconnect (0 = start from beginning) */
   resume_offset: number;
+  /** IANA timezone string from the user's browser, e.g. "Asia/Shanghai" */
+  timezone?: string;
 }
 
 // ─── streamAgent — async generator consuming NDJSON from Lambda Function URL ─

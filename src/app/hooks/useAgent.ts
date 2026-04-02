@@ -76,6 +76,7 @@ export function useAgent(userId: string, onRefresh?: () => void) {
           mode,
           request_id: requestId,
           resume_offset: resumeOffset,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
 
         for await (const event of stream) {
