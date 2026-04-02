@@ -309,7 +309,8 @@ function MessageRow({
           <ThinkingStepsView steps={msg.thinkingSteps} />
         )}
 
-        {/* Bubble */}
+        {/* Bubble — hide when content is empty (action-only response) */}
+        {(msg.content || msg.isStreaming) && (
         <div className={cn(
           'group relative px-3.5 py-2.5 text-[13px] leading-relaxed break-words',
           isUser
@@ -353,6 +354,7 @@ function MessageRow({
             </button>
           )}
         </div>
+        )}
 
         {/* Timestamp */}
         {msg.timestamp && !msg.isStreaming && (
