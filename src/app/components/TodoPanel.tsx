@@ -3,10 +3,12 @@ import { Plus, Loader2, AlertCircle, ClipboardList, X, Check, ArrowUpDown, Arrow
 import { cn } from '../utils/cn';
 import { useTodos } from '../hooks/useTodos';
 import { fromNaiveISO } from '../../lib/dates';
+import { useCustomCategories } from '../hooks/useCustomCategories';
 
 interface TodoPanelProps {
   userId: string;
   refreshKey?: number;
+  embedded?: boolean;
 }
 
 const PRIORITY_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
@@ -48,13 +50,22 @@ const FILTER_CHIPS: { key: FilterKey; label: string; dotClass?: string }[] = [
   { key: 'low', label: 'L', dotClass: 'bg-emerald-400' },
 ];
 
-export function TodoPanel({ userId, refreshKey }: TodoPanelProps) {
+export function TodoPanel({ userId, refreshKey, embedded }: TodoPanelProps) {
   const { todos, loading, error, addTodo, toggleTodo, removeTodo } = useTodos(userId, refreshKey);
+  const { categories: customCategories } = useCustomCategories(userId);
   const [newTitle, setNewTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('default');
   const [filter, setFilter] = useState<FilterKey>('all');
+
+  const mergedTypeStyles = useMemo(() => {
+    const custom: Record<string, { color: string; label: string; emoji: string }> = {};
+    for (const cat of customCategories) {
+      custom[cat.id] = { color: cat.color, label: cat.name, emoji: cat.emoji };
+    }
+    return { ...EVENT_TYPE_STYLES, ...custom };
+  }, [customCategories]);
 
   const pendingCount = todos.filter(t => !t.isCompleted).length;
 
@@ -112,9 +123,13 @@ export function TodoPanel({ userId, refreshKey }: TodoPanelProps) {
   const sortLabel = sort === 'date' ? 'Date' : sort === 'priority' ? 'Priority' : 'Sort';
 
   return (
-    <div className="w-64 border-l border-[var(--calendar-border)] bg-[var(--calendar-header-bg)] flex flex-col overflow-hidden flex-shrink-0">
+    <div className={embedded
+      ? 'flex flex-col overflow-hidden h-full'
+      : 'w-64 border-l border-[var(--calendar-border)] bg-[var(--calendar-header-bg)] flex flex-col overflow-hidden flex-shrink-0'
+    }>
 
-      {/* ── Header ── */}
+      {/* ── Header (hidden when embedded in RightPanel) ── */}
+      {!embedded && (
       <div className="h-14 px-4 border-b border-[var(--calendar-border)] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-[var(--primary)]" />
@@ -126,6 +141,7 @@ export function TodoPanel({ userId, refreshKey }: TodoPanelProps) {
           </span>
         )}
       </div>
+      )}
 
       {/* ── Filter + Sort controls ── */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--calendar-border)] flex-shrink-0">
@@ -248,7 +264,7 @@ export function TodoPanel({ userId, refreshKey }: TodoPanelProps) {
         {!loading && pendingTodos.length > 0 && (
           <div className="pt-1">
             {pendingTodos.map(todo => (
-              <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onRemove={removeTodo} />
+              <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onRemove={removeTodo} typeStyles={mergedTypeStyles} />
             ))}
           </div>
         )}
@@ -260,7 +276,7 @@ export function TodoPanel({ userId, refreshKey }: TodoPanelProps) {
               Completed
             </p>
             {completedTodos.map(todo => (
-              <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onRemove={removeTodo} />
+              <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onRemove={removeTodo} typeStyles={mergedTypeStyles} />
             ))}
           </div>
         )}
@@ -275,15 +291,17 @@ function TodoRow({
   todo,
   onToggle,
   onRemove,
+  typeStyles,
 }: {
   todo: import('../../lib/api').TodoTaskRecord;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
+  typeStyles: Record<string, { color: string; label: string; emoji: string }>;
 }) {
   const priority = todo.priority?.toLowerCase() ?? '';
   const pStyle = PRIORITY_STYLES[priority];
   const eventKey = (todo.eventType ?? 'other').toLowerCase();
-  const eStyle = EVENT_TYPE_STYLES[eventKey] ?? EVENT_TYPE_STYLES.other;
+  const eStyle = typeStyles[eventKey] ?? typeStyles.other ?? EVENT_TYPE_STYLES.other;
 
   return (
     <div

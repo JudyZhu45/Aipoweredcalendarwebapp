@@ -10,12 +10,29 @@ export interface AITaskData {
   event_type?: string;
 }
 
+export interface AIRoutineData {
+  title: string;
+  description?: string;
+  frequency: 'Daily' | 'Weekly' | 'Monthly';
+  weekdays?: number[];          // 1-7 (1=Sun, 7=Sat)
+  month_days?: number[];        // 1-31
+  start_time_hour?: number;
+  start_time_minute?: number;
+  end_time_hour?: number;
+  end_time_minute?: number;
+  event_type?: string;
+  end_date?: string;            // "yyyy-MM-dd"
+}
+
 export type AIAction =
   | { type: 'create_task'; data: AITaskData }
   | { type: 'create_multiple_tasks'; data: AITaskData[] }
   | { type: 'update_task'; task_id: string; _version?: number; fields: AITaskData }
   | { type: 'delete_task'; task_id: string; _version?: number }
-  | { type: 'complete_task'; task_id: string; _version?: number };
+  | { type: 'complete_task'; task_id: string; _version?: number }
+  | { type: 'create_routine'; data: AIRoutineData }
+  | { type: 'update_routine'; routine_id: string; _version?: number; fields: Partial<AIRoutineData> }
+  | { type: 'delete_routine'; routine_id: string; _version?: number };
 
 export interface ThinkingStep {
   round: number;

@@ -2,7 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import { streamAgent, type AIAction, type RawMessage, type ThinkingStep } from '../../lib/agent';
-import { createTodo, updateTodo, deleteTodo } from '../../lib/api';
+import { createTodo, updateTodo, deleteTodo, createRoutine, updateRoutine, deleteRoutine, fetchRoutines } from '../../lib/api';
+import { generateTasks, deleteFutureRoutineTasks, deleteAllRoutineTasks } from '../../lib/routine-tasks';
 import { toNaiveISO } from '../../lib/dates';
 
 // ─── UI-level message (simpler than raw OpenAI history) ──────────────────────
@@ -265,6 +266,72 @@ async function executeActions(actions: AIAction[], userId: string): Promise<stri
             _version: action._version,
           });
           if (!result) failures.push(`Failed to mark task complete (ID: ${action.task_id.slice(0, 8)}…)`);
+          break;
+        }
+        case 'create_routine': {
+          const d = action.data;
+          const record = await createRoutine({
+            id: crypto.randomUUID(),
+            title: d.title,
+            description: d.description ?? '',
+            routineType: (d.start_time_hour != null) ? 'Schedule' : 'Todo',
+            frequency: d.frequency,
+            weekdays: d.weekdays,
+            startTimeHour: d.start_time_hour,
+            startTimeMinute: d.start_time_minute ?? 0,
+            endTimeHour: d.end_time_hour,
+            endTimeMinute: d.end_time_minute ?? 0,
+            eventType: d.event_type ?? 'other',
+            isActive: true,
+            startDate: new Date().toISOString(),
+            endDate: d.end_date ? new Date(d.end_date + 'T23:59:59').toISOString() : undefined,
+            userId,
+          } as any);
+          if (!record) {
+            failures.push(`Failed to create routine "${d.title}"`);
+          } else {
+            const endAt = d.end_date ? new Date(d.end_date) : new Date(Date.now() + 90 * 86400000);
+            await generateTasks(record, userId, new Date(), endAt);
+          }
+          break;
+        }
+        case 'update_routine': {
+          const result = await updateRoutine({
+            id: action.routine_id,
+            _version: action._version,
+            ...action.fields.title != null && { title: action.fields.title },
+            ...action.fields.frequency != null && { frequency: action.fields.frequency },
+            ...action.fields.weekdays != null && { weekdays: action.fields.weekdays },
+            ...action.fields.month_days != null && { monthDays: action.fields.month_days },
+            ...action.fields.start_time_hour != null && { startTimeHour: action.fields.start_time_hour },
+            ...action.fields.start_time_minute != null && { startTimeMinute: action.fields.start_time_minute },
+            ...action.fields.end_time_hour != null && { endTimeHour: action.fields.end_time_hour },
+            ...action.fields.end_time_minute != null && { endTimeMinute: action.fields.end_time_minute },
+            ...action.fields.event_type != null && { eventType: action.fields.event_type },
+            ...action.fields.end_date != null && { endDate: new Date(action.fields.end_date + 'T23:59:59').toISOString() },
+            ...action.fields.description != null && { description: action.fields.description },
+          } as any);
+          if (!result) {
+            failures.push(`Failed to update routine (ID: ${action.routine_id.slice(0, 8)}…)`);
+          } else {
+            // Regenerate future tasks with new rules
+            await deleteFutureRoutineTasks(action.routine_id);
+            const routines = await fetchRoutines();
+            const updated = routines.find(r => r.id === action.routine_id);
+            if (updated) {
+              const endAt = updated.endDate ? new Date(updated.endDate) : new Date(Date.now() + 90 * 86400000);
+              await generateTasks(updated, userId, new Date(), endAt);
+            }
+          }
+          break;
+        }
+        case 'delete_routine': {
+          const ok = await deleteRoutine(action.routine_id, action._version ?? 1);
+          if (!ok) {
+            failures.push(`Failed to delete routine (ID: ${action.routine_id.slice(0, 8)}…)`);
+          } else {
+            await deleteAllRoutineTasks(action.routine_id);
+          }
           break;
         }
       }

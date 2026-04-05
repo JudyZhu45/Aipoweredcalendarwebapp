@@ -11,6 +11,10 @@ export interface Event {
   isAISuggestion?: boolean;
   hasConflict?: boolean;
   eventType?: string;
+  isRoutine?: boolean;
+  isFromRoutine?: boolean;
+  routineId?: string;
+  isCompleted?: boolean;
 }
 
 interface EventCardProps {
@@ -42,15 +46,18 @@ export function EventCard({ event, onClick, isSelected, style }: EventCardProps)
         'hover:shadow-lg hover:scale-[1.02] hover:z-10',
         isSelected && 'ring-2 ring-white shadow-xl scale-[1.02] z-10',
         event.isAISuggestion && 'border-2 border-dashed opacity-70',
-        event.hasConflict && 'ring-2 ring-red-500'
+        event.hasConflict && 'ring-2 ring-red-500',
+        event.isCompleted && 'opacity-50',
       )}
       style={{
-        backgroundColor: bgColor,
+        backgroundColor: event.isFromRoutine ? `color-mix(in srgb, ${bgColor} 75%, white)` : bgColor,
         ...style,
       }}
       onClick={onClick}
     >
-      <div className="text-xs font-medium truncate">{event.title}</div>
+      <div className={cn('text-xs font-medium truncate', event.isCompleted && 'line-through')}>
+        {event.title}
+      </div>
       {event.description && (
         <div className="text-xs opacity-90 truncate">{event.description}</div>
       )}

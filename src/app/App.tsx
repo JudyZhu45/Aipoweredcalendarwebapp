@@ -8,7 +8,7 @@ import { Sidebar } from './components/Sidebar';
 import { WeekCalendar } from './components/WeekCalendar';
 import { AIPanel } from './components/AIPanel';
 import { EventModal } from './components/EventModal';
-import { TodoPanel } from './components/TodoPanel';
+import { RightPanel } from './components/RightPanel';
 import { AuthPage } from './components/AuthPage';
 import { useAuth } from './hooks/useAuth';
 import { useSchedules } from './hooks/useSchedules';
@@ -92,8 +92,17 @@ function MainApp({ userId, userEmail, onLogout }: MainAppProps) {
     setIsModalOpen(true);
   };
 
-  const handleSaveEvent = async (eventData: Partial<Event> & { eventType?: string }) => {
+  const handleSaveEvent = async (eventData: Partial<Event> & { eventType?: string; isCompleted?: boolean }) => {
     if (selectedEvent && schedule.events.some((e: Event) => e.id === selectedEvent.id)) {
+      // Handle completion toggle
+      if (eventData.isCompleted !== undefined) {
+        await schedule.updateSchedule(selectedEvent.id, {} as any);
+        // Direct update for isCompleted
+        const { updateTodo } = await import('../lib/api');
+        await updateTodo({ id: selectedEvent.id, isCompleted: eventData.isCompleted });
+        schedule.refresh();
+        return;
+      }
       await schedule.updateSchedule(selectedEvent.id, {
         title: eventData.title,
         startTime: eventData.startTime,
@@ -175,7 +184,7 @@ function MainApp({ userId, userEmail, onLogout }: MainAppProps) {
           userId={userId}
           onRefresh={handleAgentRefresh}
         />
-        <TodoPanel userId={userId} refreshKey={todoRefreshKey} />
+        <RightPanel userId={userId} refreshKey={todoRefreshKey} onTaskGenerated={handleAgentRefresh} />
       </div>
       <EventModal
         isOpen={isModalOpen}
@@ -185,6 +194,7 @@ function MainApp({ userId, userEmail, onLogout }: MainAppProps) {
         event={selectedEvent}
         initialDate={modalInitialDate}
         initialEndDate={modalInitialEndDate}
+        userId={userId}
       />
     </div>
   );

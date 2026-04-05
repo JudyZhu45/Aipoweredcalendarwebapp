@@ -406,6 +406,9 @@ function ActionConfirmationCard({
     if (a.type === 'update_task') return { icon: '✏️', text: `Update task` };
     if (a.type === 'delete_task') return { icon: '🗑️', text: `Delete task` };
     if (a.type === 'complete_task') return { icon: '✓', text: `Mark task complete` };
+    if (a.type === 'create_routine') return { icon: '🔁', text: `Create routine "${a.data.title}" (${a.data.frequency})` };
+    if (a.type === 'update_routine') return { icon: '✏️', text: `Update routine` };
+    if (a.type === 'delete_routine') return { icon: '🗑️', text: `Delete routine` };
     return { icon: '•', text: 'Action' };
   });
 

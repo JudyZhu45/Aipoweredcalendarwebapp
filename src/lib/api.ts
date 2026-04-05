@@ -16,6 +16,9 @@ export interface TodoTaskRecord {
   priority?: string | null;
   eventType?: string | null;
   notes?: string | null;
+  // Routine linkage
+  isFromRoutine?: boolean | null;
+  routineId?: string | null;
   userId?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -41,6 +44,7 @@ export interface RoutineRecord {
   startTimeMinute?: number | null;
   endTimeHour?: number | null;
   endTimeMinute?: number | null;
+  eventType?: string | null;
   isActive: boolean;
   startDate: string;
   endDate?: string | null;
@@ -48,6 +52,7 @@ export interface RoutineRecord {
   createdAt?: string | null;
   // DataStore conflict detection — required for update/delete
   _version?: number | null;
+  _deleted?: boolean | null;
 }
 
 // ─── TodoTask Queries ──────────────────────────────────────────────────────────
@@ -65,6 +70,8 @@ const LIST_TODOS = /* GraphQL */ `
         endTime
         priority
         eventType
+        isFromRoutine
+        routineId
         userId
         createdAt
         updatedAt
@@ -87,6 +94,8 @@ const CREATE_TODO = /* GraphQL */ `
       endTime
       priority
       eventType
+      isFromRoutine
+      routineId
       userId
       createdAt
       updatedAt
@@ -139,12 +148,14 @@ const LIST_ROUTINES = /* GraphQL */ `
         startTimeMinute
         endTimeHour
         endTimeMinute
+        eventType
         isActive
         startDate
         endDate
         userId
         createdAt
         _version
+        _deleted
       }
     }
   }
@@ -158,8 +169,16 @@ const CREATE_ROUTINE = /* GraphQL */ `
       description
       routineType
       frequency
+      weekdays
+      monthDays
+      startTimeHour
+      startTimeMinute
+      endTimeHour
+      endTimeMinute
+      eventType
       isActive
       startDate
+      endDate
       userId
       createdAt
       _version
@@ -193,14 +212,10 @@ export async function fetchTodos(): Promise<TodoTaskRecord[]> {
   try {
     const result = await client.graphql({ query: LIST_TODOS });
     const items = (result as any).data?.listTodoTasks?.items ?? [];
-    console.log('[api] fetchTodos raw result:', JSON.stringify(result, null, 2));
     // Filter out soft-deleted records (_deleted: true = DataStore tombstone)
     return items.filter((item: TodoTaskRecord) => !item._deleted);
   } catch (err: any) {
-    console.error('fetchTodos error — full details:');
-    console.error('  message:', err?.message);
-    console.error('  errors:', JSON.stringify(err?.errors, null, 2));
-    console.error('  raw:', JSON.stringify(err, null, 2));
+    console.error('fetchTodos error:', err?.message);
     return [];
   }
 }
@@ -211,18 +226,14 @@ export async function createTodo(
   try {
     // Only strip _version — it is not part of CreateTodoTaskInput
     const { _version, ...cleanInput } = input;
-    console.log('[createTodo] sending input:', JSON.stringify(cleanInput, null, 2));
     const result = await client.graphql({
       query: CREATE_TODO,
       variables: { input: cleanInput },
     });
     const created = (result as any).data.createTodoTask;
-    console.log('[createTodo] success, returned:', JSON.stringify(created, null, 2));
     return created;
   } catch (err: any) {
-    console.error('createTodo error — message:', err?.message);
-    console.error('createTodo error — errors:', JSON.stringify(err?.errors, null, 2));
-    console.error('createTodo error — raw:', JSON.stringify(err, null, 2));
+    console.error('createTodo error:', err?.message);
     return null;
   }
 }
@@ -245,16 +256,145 @@ export async function updateTodo(
 
 export async function deleteTodo(id: string, version: number): Promise<boolean> {
   try {
-    console.log('[deleteTodo] deleting id:', id, 'version:', version);
     await client.graphql({
       query: DELETE_TODO,
       variables: { input: { id, _version: version } },
     });
-    console.log('[deleteTodo] success');
     return true;
   } catch (err: any) {
-    console.error('[deleteTodo] error — errors:', JSON.stringify(err?.errors, null, 2));
-    console.error('[deleteTodo] error — raw:', JSON.stringify(err, null, 2));
+    console.error('[deleteTodo] error:', err?.message);
+    return false;
+  }
+}
+
+// ─── UserPreference ────────────────────────────────────────────────────────────
+
+export interface UserPreferenceRecord {
+  id: string;
+  category: string;
+  content: string;
+  source: string;
+  confirmedCount: number;
+  isTemporary: boolean;
+  expiresAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  _version?: number | null;
+  _deleted?: boolean | null;
+}
+
+const LIST_USER_PREFERENCES = /* GraphQL */ `
+  query ListUserPreferences {
+    listUserPreferences {
+      items {
+        id
+        category
+        content
+        source
+        confirmedCount
+        isTemporary
+        expiresAt
+        createdAt
+        updatedAt
+        _version
+        _deleted
+      }
+    }
+  }
+`;
+
+const CREATE_USER_PREFERENCE = /* GraphQL */ `
+  mutation CreateUserPreference($input: CreateUserPreferenceInput!) {
+    createUserPreference(input: $input) {
+      id
+      category
+      content
+      source
+      confirmedCount
+      isTemporary
+      expiresAt
+      createdAt
+      updatedAt
+      _version
+    }
+  }
+`;
+
+const UPDATE_USER_PREFERENCE = /* GraphQL */ `
+  mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
+    updateUserPreference(input: $input) {
+      id
+      category
+      content
+      source
+      confirmedCount
+      isTemporary
+      expiresAt
+      updatedAt
+      _version
+    }
+  }
+`;
+
+const DELETE_USER_PREFERENCE = /* GraphQL */ `
+  mutation DeleteUserPreference($input: DeleteUserPreferenceInput!) {
+    deleteUserPreference(input: $input) {
+      id
+    }
+  }
+`;
+
+export async function fetchPreferences(): Promise<UserPreferenceRecord[]> {
+  try {
+    const result = await client.graphql({ query: LIST_USER_PREFERENCES });
+    const items = (result as any).data?.listUserPreferences?.items ?? [];
+    return items.filter((item: UserPreferenceRecord) => !item._deleted);
+  } catch (err: any) {
+    console.error('fetchPreferences error:', err?.message);
+    return [];
+  }
+}
+
+export async function createPreference(
+  input: Omit<UserPreferenceRecord, 'createdAt' | 'updatedAt'>
+): Promise<UserPreferenceRecord | null> {
+  try {
+    const { _version, ...cleanInput } = input;
+    const result = await client.graphql({
+      query: CREATE_USER_PREFERENCE,
+      variables: { input: cleanInput },
+    });
+    return (result as any).data.createUserPreference;
+  } catch (err: any) {
+    console.error('createPreference error:', err?.message);
+    return null;
+  }
+}
+
+export async function updatePreference(
+  input: Pick<UserPreferenceRecord, 'id'> & Partial<UserPreferenceRecord>
+): Promise<UserPreferenceRecord | null> {
+  try {
+    const result = await client.graphql({
+      query: UPDATE_USER_PREFERENCE,
+      variables: { input },
+    });
+    return (result as any).data.updateUserPreference;
+  } catch (err: any) {
+    console.error('updatePreference error:', err?.message);
+    return null;
+  }
+}
+
+export async function deletePreference(id: string, version: number): Promise<boolean> {
+  try {
+    await client.graphql({
+      query: DELETE_USER_PREFERENCE,
+      variables: { input: { id, _version: version } },
+    });
+    return true;
+  } catch (err: any) {
+    console.error('deletePreference error:', err?.message);
     return false;
   }
 }
@@ -264,7 +404,8 @@ export async function deleteTodo(id: string, version: number): Promise<boolean> 
 export async function fetchRoutines(): Promise<RoutineRecord[]> {
   try {
     const result = await client.graphql({ query: LIST_ROUTINES });
-    return (result as any).data.listRoutines.items ?? [];
+    const items = (result as any).data.listRoutines.items ?? [];
+    return items.filter((r: any) => !r._deleted);
   } catch (err) {
     console.error('fetchRoutines error:', err);
     return [];
@@ -275,13 +416,14 @@ export async function createRoutine(
   input: Omit<RoutineRecord, 'createdAt' | 'updatedAt'>
 ): Promise<RoutineRecord | null> {
   try {
+    const { _version, ...cleanInput } = input as any;
     const result = await client.graphql({
       query: CREATE_ROUTINE,
-      variables: { input },
+      variables: { input: cleanInput },
     });
     return (result as any).data.createRoutine;
-  } catch (err) {
-    console.error('createRoutine error:', err);
+  } catch (err: any) {
+    console.error('createRoutine error:', err?.message);
     return null;
   }
 }
@@ -309,8 +451,8 @@ export async function deleteRoutine(id: string, version: number): Promise<boolea
       variables: { input: { id, _version: version } },
     });
     return true;
-  } catch (err) {
-    console.error('deleteRoutine error:', err);
+  } catch (err: any) {
+    console.error('deleteRoutine error:', err?.message);
     return false;
   }
 }

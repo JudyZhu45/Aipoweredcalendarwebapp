@@ -20,9 +20,14 @@ export function useTodos(userId: string | undefined, refreshKey?: number) {
     setError(null);
     try {
       const all = await fetchTodos();
-      console.log('[useTodos] total records from DB:', all.length);
-      // Plain todos (no startTime/endTime) belonging to this user OR with no userId (pre-fix iOS data)
-      setTodos(all.filter(t => !isSchedule(t) && (!t.userId || t.userId === userId)));
+      const today = new Date().toISOString().slice(0, 10);
+      setTodos(all.filter(t => {
+        if (isSchedule(t)) return false;
+        if (t.userId && t.userId !== userId) return false;
+        // Routine todos: only show today's
+        if (t.isFromRoutine && t.dueDate && t.dueDate.slice(0, 10) !== today) return false;
+        return true;
+      }));
     } catch {
       setError('Failed to load tasks');
     } finally {
@@ -30,35 +35,26 @@ export function useTodos(userId: string | undefined, refreshKey?: number) {
     }
   }, [userId]);
 
-  useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const addTodo = useCallback(async (title: string, dueDate?: string, priority?: string) => {
     if (!userId) return null;
     const newTodo = await createTodo({
       id: crypto.randomUUID(),
-      title,
-      description: '',
-      isCompleted: false,
-      userId,
-      // dueDate is required in schema — default to end of today if not provided (naive ISO, no UTC conversion)
+      title, description: '', isCompleted: false, userId,
       dueDate: dueDate ?? toNaiveISO(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 23, 59)),
-      priority: priority ?? 'medium',
+      priority: priority ?? 'medium', eventType: 'other',
     });
-    if (newTodo) {
-      setTodos(prev => [newTodo, ...prev]);
-    }
+    if (newTodo) setTodos(prev => [...prev, newTodo]);
     return newTodo;
   }, [userId]);
 
   const toggleTodo = useCallback(async (id: string) => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
-    // Pass _version for DataStore conflict detection
-    const updated = await updateTodo({ id, isCompleted: !todo.isCompleted, _version: todo._version ?? undefined });
-    if (updated) {
-      setTodos(prev => prev.map(t => (t.id === id ? { ...t, isCompleted: !t.isCompleted, _version: updated._version } : t)));
+    const result = await updateTodo({ id, isCompleted: !todo.isCompleted, _version: todo._version });
+    if (result) {
+      setTodos(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted, _version: result._version } : t));
     }
   }, [todos]);
 
@@ -66,10 +62,8 @@ export function useTodos(userId: string | undefined, refreshKey?: number) {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
     const ok = await deleteTodo(id, todo._version ?? 1);
-    if (ok) {
-      setTodos(prev => prev.filter(t => t.id !== id));
-    }
+    if (ok) setTodos(prev => prev.filter(t => t.id !== id));
   }, [todos]);
 
-  return { todos, loading, error, addTodo, toggleTodo, removeTodo, refresh: load };
+  return { todos, loading, error, addTodo, toggleTodo, removeTodo };
 }
